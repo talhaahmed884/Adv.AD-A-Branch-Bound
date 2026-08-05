@@ -19,6 +19,8 @@ add_executable(Adv_AD_A_Branch_Bound main.cpp
         BoardSolver/SerialMRVSolver/SerialMRVSolver.h
         BoardSolver/OpenMPSolver/OpenMPSolver.cpp
         BoardSolver/OpenMPSolver/OpenMPSolver.h
+        BoardSolver/OpenMPBranchBoundMRVSolver/OpenMPBranchBoundMRVSolver.cpp
+        BoardSolver/OpenMPBranchBoundMRVSolver/OpenMPBranchBoundMRVSolver.h
         BoardSolver/BranchBoundSolver/BranchBoundSolver.cpp
         BoardSolver/BranchBoundSolver/BranchBoundSolver.h
         BoardSolver/BranchBoundMRVSolver/BranchBoundMRVSolver.cpp

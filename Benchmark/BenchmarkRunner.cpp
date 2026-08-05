@@ -5,6 +5,7 @@
 #include "../BoardSolver/BranchBoundSolver/BranchBoundSolver.h"
 #include "../BoardSolver/BranchBoundMRVSolver/BranchBoundMRVSolver.h"
 #include "../BoardSolver/OpenMPSolver/OpenMPSolver.h"
+#include "../BoardSolver/OpenMPBranchBoundMRVSolver/OpenMPBranchBoundMRVSolver.h"
 #include "../CorrectnessChecker/CorrectnessChecker.h"
 
 #ifdef _OPENMP
@@ -18,7 +19,6 @@
 #include <iostream>
 #include <sstream>
 
-#include "../BoardSolver/BranchBoundMRVSolver/BranchBoundMRVSolver.h"
 #ifdef _WIN32
 #include <direct.h>
 #define mkdir(path, mode) _mkdir(path)
@@ -108,6 +108,13 @@ for (const int t: OPENMP_THREAD_COUNTS) {
                     results.push_back(r);
                 }
             }
+
+            for (const int t: OPENMP_THREAD_COUNTS) {
+                for (const auto &r: benchmarkOpenMPBranchBoundMRV(boards[i], boardId, diff.name, t)) {
+                    printRow(r);
+                    results.push_back(r);
+                }
+            }
         }
     }
 
@@ -183,6 +190,29 @@ vector<BenchmarkResult> BenchmarkRunner::benchmarkBranchBoundMRV(const Board &bo
         const double timeSec = chrono::duration<double>(end - start).count();
         const int correct = CorrectnessChecker::check(copy) ? 1 : 0;
         results.push_back({boardId, difficulty, "BranchBoundMRV", 1, rep, timeSec, correct});
+    }
+    return results;
+}
+
+vector<BenchmarkResult> BenchmarkRunner::benchmarkOpenMPBranchBoundMRV(const Board &board, const string &boardId,
+                                                                      const string &difficulty, const int threads) {
+    OpenMPBranchBoundMRVSolver solver(threads);
+    vector<BenchmarkResult> results;
+    results.reserve(REPETITIONS);
+
+    for (int rep = 1; rep <= REPETITIONS; rep++) {
+        Board copy = board;
+#ifdef _OPENMP
+        const double start = omp_get_wtime();
+        solver.solve(copy);
+        const double timeSec = omp_get_wtime() - start;
+#else
+        const auto start = chrono::high_resolution_clock::now();
+        solver.solve(copy);
+        const double timeSec = chrono::duration<double>(chrono::high_resolution_clock::now() - start).count();
+#endif
+        const int correct = CorrectnessChecker::check(copy) ? 1 : 0;
+        results.push_back({boardId, difficulty, "OMP-BranchBoundMRV", threads, rep, timeSec, correct});
     }
     return results;
 }
