@@ -17,6 +17,8 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+
+#include "../BoardSolver/BranchBoundMRVSolver/BranchBoundMRVSolver.h"
 #ifdef _WIN32
 #include <direct.h>
 #define mkdir(path, mode) _mkdir(path)

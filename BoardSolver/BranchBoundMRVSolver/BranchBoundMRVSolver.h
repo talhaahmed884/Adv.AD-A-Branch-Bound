@@ -1,5 +1,5 @@
-#ifndef ADV_AD_A_BRANCH_BOUND_BRANCHBOUNDSOLVER_H
-#define ADV_AD_A_BRANCH_BOUND_BRANCHBOUNDSOLVER_H
+#ifndef ADV_AD_A_BRANCH_BOUND_BRANCHBOUNDMRVSOLVER_H
+#define ADV_AD_A_BRANCH_BOUND_BRANCHBOUNDMRVSOLVER_H
 #pragma once
 
 #include "../Solver.h"
@@ -33,4 +33,4 @@ private:
     static bool isValidInCol(int col, int value, const Board &board);
 };
 
-#endif //ADV_AD_A_BRANCH_BOUND_BRANCHBOUNDSOLVER_H
+#endif //ADV_AD_A_BRANCH_BOUND_BRANCHBOUNDMRVSOLVER_H
