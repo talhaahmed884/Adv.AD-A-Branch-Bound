@@ -21,9 +21,7 @@ add_executable(Adv_AD_A_Branch_Bound main.cpp
         BoardSolver/OpenMPSolver/OpenMPSolver.h
         BoardSolver/OpenMPFrontierSolver/OpenMPFrontierSolver.cpp
         BoardSolver/OpenMPFrontierSolver/OpenMPFrontierSolver.h
-        BoardSolver/DLXSolver/DLXSolver.cpp
-        BoardSolver/DLXSolver/DLXSolver.h
-        CorrectnessChecker/CorrectnessChecker.cpp
+CorrectnessChecker/CorrectnessChecker.cpp
         CorrectnessChecker/CorrectnessChecker.h
         Benchmark/BenchmarkRunner.cpp
         Benchmark/BenchmarkRunner.h
