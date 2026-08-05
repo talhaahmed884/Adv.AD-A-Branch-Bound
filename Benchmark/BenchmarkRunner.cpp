@@ -2,6 +2,7 @@
 #include "../BoardGenerator/BoardGenerator.h"
 #include "../BoardSolver/SerialSolver/SerialSolver.h"
 #include "../BoardSolver/SerialMRVSolver/SerialMRVSolver.h"
+#include "../BoardSolver/BranchBoundSolver/BranchBoundSolver.h"
 #include "../BoardSolver/BranchBoundMRVSolver/BranchBoundMRVSolver.h"
 #include "../BoardSolver/OpenMPSolver/OpenMPSolver.h"
 #include "../CorrectnessChecker/CorrectnessChecker.h"
@@ -89,6 +90,11 @@ void BenchmarkRunner::runBenchmarks(const string &outputDir, const int puzzleCou
                 results.push_back(r);
             }
 
+            for (const auto &r: benchmarkBranchBound(boards[i], boardId, diff.name)) {
+                printRow(r);
+                results.push_back(r);
+            }
+
             for (const auto &r: benchmarkBranchBoundMRV(boards[i], boardId, diff.name)) {
                 printRow(r);
                 results.push_back(r);
@@ -139,6 +145,24 @@ vector<BenchmarkResult> BenchmarkRunner::benchmarkSerialMRV(const Board &board, 
         const double timeSec = chrono::duration<double>(end - start).count();
         const int correct = CorrectnessChecker::check(copy) ? 1 : 0;
         results.push_back({boardId, difficulty, "Serial-MRV", 1, rep, timeSec, correct});
+    }
+    return results;
+}
+
+vector<BenchmarkResult> BenchmarkRunner::benchmarkBranchBound(const Board &board, const string &boardId,
+                                                             const string &difficulty) {
+    BranchBoundSolver solver;
+    vector<BenchmarkResult> results;
+    results.reserve(REPETITIONS);
+
+    for (int rep = 1; rep <= REPETITIONS; rep++) {
+        Board copy = board;
+        const auto start = chrono::high_resolution_clock::now();
+        solver.solve(copy);
+        const auto end = chrono::high_resolution_clock::now();
+        const double timeSec = chrono::duration<double>(end - start).count();
+        const int correct = CorrectnessChecker::check(copy) ? 1 : 0;
+        results.push_back({boardId, difficulty, "BranchBound", 1, rep, timeSec, correct});
     }
     return results;
 }
