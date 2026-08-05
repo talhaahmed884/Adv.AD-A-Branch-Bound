@@ -31,6 +31,12 @@ private:
     static vector<BenchmarkResult> benchmarkSerialMRV(const Board &board, const string &boardId,
                                                       const string &difficulty);
 
+    static vector<BenchmarkResult> benchmarkBranchBound(const Board &board, const string &boardId,
+                                                       const string &difficulty);
+
+    static vector<BenchmarkResult> benchmarkBranchBoundMRV(const Board &board, const string &boardId,
+                                                           const string &difficulty);
+
     static vector<BenchmarkResult> benchmarkOpenMP(const Board &board, const string &boardId,
                                                    const string &difficulty, int threads);
 
