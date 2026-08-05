@@ -3,10 +3,11 @@
 SerialMRVSolver::SerialMRVSolver() = default;
 
 void SerialMRVSolver::solve(Board &board) {
-    solveGrid(board);
+    nodeCount = 0;
+    solveGrid(board, nodeCount);
 }
 
-bool SerialMRVSolver::solveGrid(Board &board) {
+bool SerialMRVSolver::solveGrid(Board &board, long long &nodes) {
     int row = -1;
     int col = -1;
 
@@ -20,8 +21,9 @@ bool SerialMRVSolver::solveGrid(Board &board) {
         }
 
         board.setBoardValue(row, col, value);
+        ++nodes;
 
-        if (solveGrid(board)) {
+        if (solveGrid(board, nodes)) {
             return true;
         }
 

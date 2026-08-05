@@ -168,6 +168,7 @@ The program runs the full benchmark suite and prints results to stdout as CSV, t
 | `Threads` | Thread count (1 for serial algorithms) |
 | `Rep` | Repetition number (1 – REPETITIONS) |
 | `Time_s` | Wall-clock time in seconds (9 decimal places) |
+| `Nodes` | Number of value placements attempted during the search |
 | `Correct` | 1 if the solution passed correctness validation, 0 otherwise |
 
 ### Algorithm labels in CSV

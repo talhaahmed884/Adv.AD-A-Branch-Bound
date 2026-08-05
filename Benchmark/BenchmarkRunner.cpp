@@ -61,6 +61,7 @@ void BenchmarkRunner::printRow(const BenchmarkResult &r) {
             << r.threads << ","
             << r.rep << ","
             << r.timeSec << ","
+            << r.nodes << ","
             << r.correct << "\n";
 }
 
@@ -72,7 +73,7 @@ void BenchmarkRunner::runBenchmarks(const string &outputDir, const int puzzleCou
     const string outputPath = makeOutputPath(outputDir, "results");
     vector<BenchmarkResult> results;
 
-    cout << "Board_ID,Difficulty,Algorithm,Threads,Rep,Time_s,Correct\n";
+    cout << "Board_ID,Difficulty,Algorithm,Threads,Rep,Time_s,Nodes,Correct\n";
 
     for (const auto &diff: DIFFICULTIES) {
         const vector<Board> boards = BoardGenerator::loadProblems(puzzleCount, diff.level);
@@ -134,8 +135,9 @@ vector<BenchmarkResult> BenchmarkRunner::benchmarkSerial(const Board &board, con
         solver.solve(copy);
         const auto end = chrono::high_resolution_clock::now();
         const double timeSec = chrono::duration<double>(end - start).count();
+        const long long nodes = solver.getNodeCount();
         const int correct = CorrectnessChecker::check(copy) ? 1 : 0;
-        results.push_back({boardId, difficulty, "Serial", 1, rep, timeSec, correct});
+        results.push_back({boardId, difficulty, "Serial", 1, rep, timeSec, nodes, correct});
     }
     return results;
 }
@@ -152,8 +154,9 @@ vector<BenchmarkResult> BenchmarkRunner::benchmarkSerialMRV(const Board &board, 
         solver.solve(copy);
         const auto end = chrono::high_resolution_clock::now();
         const double timeSec = chrono::duration<double>(end - start).count();
+        const long long nodes = solver.getNodeCount();
         const int correct = CorrectnessChecker::check(copy) ? 1 : 0;
-        results.push_back({boardId, difficulty, "Serial-MRV", 1, rep, timeSec, correct});
+        results.push_back({boardId, difficulty, "Serial-MRV", 1, rep, timeSec, nodes, correct});
     }
     return results;
 }
@@ -170,8 +173,9 @@ vector<BenchmarkResult> BenchmarkRunner::benchmarkBranchBound(const Board &board
         solver.solve(copy);
         const auto end = chrono::high_resolution_clock::now();
         const double timeSec = chrono::duration<double>(end - start).count();
+        const long long nodes = solver.getNodeCount();
         const int correct = CorrectnessChecker::check(copy) ? 1 : 0;
-        results.push_back({boardId, difficulty, "BranchBound", 1, rep, timeSec, correct});
+        results.push_back({boardId, difficulty, "BranchBound", 1, rep, timeSec, nodes, correct});
     }
     return results;
 }
@@ -188,8 +192,9 @@ vector<BenchmarkResult> BenchmarkRunner::benchmarkBranchBoundMRV(const Board &bo
         solver.solve(copy);
         const auto end = chrono::high_resolution_clock::now();
         const double timeSec = chrono::duration<double>(end - start).count();
+        const long long nodes = solver.getNodeCount();
         const int correct = CorrectnessChecker::check(copy) ? 1 : 0;
-        results.push_back({boardId, difficulty, "BranchBoundMRV", 1, rep, timeSec, correct});
+        results.push_back({boardId, difficulty, "BranchBoundMRV", 1, rep, timeSec, nodes, correct});
     }
     return results;
 }
@@ -211,8 +216,9 @@ vector<BenchmarkResult> BenchmarkRunner::benchmarkOpenMPBranchBoundMRV(const Boa
         solver.solve(copy);
         const double timeSec = chrono::duration<double>(chrono::high_resolution_clock::now() - start).count();
 #endif
+        const long long nodes = solver.getNodeCount();
         const int correct = CorrectnessChecker::check(copy) ? 1 : 0;
-        results.push_back({boardId, difficulty, "OMP-BranchBoundMRV", threads, rep, timeSec, correct});
+        results.push_back({boardId, difficulty, "OMP-BranchBoundMRV", threads, rep, timeSec, nodes, correct});
     }
     return results;
 }
@@ -234,15 +240,16 @@ vector<BenchmarkResult> BenchmarkRunner::benchmarkOpenMP(const Board &board, con
         solver.solve(copy);
         const double timeSec = chrono::duration<double>(chrono::high_resolution_clock::now() - start).count();
 #endif
+        const long long nodes = solver.getNodeCount();
         const int correct = CorrectnessChecker::check(copy) ? 1 : 0;
-        results.push_back({boardId, difficulty, "OpenMP", threads, rep, timeSec, correct});
+        results.push_back({boardId, difficulty, "OpenMP", threads, rep, timeSec, nodes, correct});
     }
     return results;
 }
 
 void BenchmarkRunner::writeCsv(const vector<BenchmarkResult> &results, const string &outputPath) {
     ofstream file(outputPath);
-    file << "Board_ID,Difficulty,Algorithm,Threads,Rep,Time_s,Correct\n";
+    file << "Board_ID,Difficulty,Algorithm,Threads,Rep,Time_s,Nodes,Correct\n";
     file << fixed << setprecision(9);
 
     for (const auto &r: results) {
@@ -252,6 +259,7 @@ void BenchmarkRunner::writeCsv(const vector<BenchmarkResult> &results, const str
                 << r.threads << ","
                 << r.rep << ","
                 << r.timeSec << ","
+                << r.nodes << ","
                 << r.correct << "\n";
     }
 }

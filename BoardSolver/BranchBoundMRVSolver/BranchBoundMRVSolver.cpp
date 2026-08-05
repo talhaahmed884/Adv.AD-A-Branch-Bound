@@ -3,10 +3,11 @@
 BranchBoundMRVSolver::BranchBoundMRVSolver() = default;
 
 void BranchBoundMRVSolver::solve(Board &board) {
-    solveGrid(board);
+    nodeCount = 0;
+    solveGrid(board, nodeCount);
 }
 
-bool BranchBoundMRVSolver::solveGrid(Board &board) {
+bool BranchBoundMRVSolver::solveGrid(Board &board, long long &nodes) {
     int row = -1;
     int col = -1;
 
@@ -19,10 +20,11 @@ bool BranchBoundMRVSolver::solveGrid(Board &board) {
             continue;
 
         board.setBoardValue(row, col, val);
+        ++nodes;
 
         // Bound: prune immediately if the placement leaves any empty cell
         // with no valid candidates (forward checking)
-        if (isFeasible(board) && solveGrid(board))
+        if (isFeasible(board) && solveGrid(board, nodes))
             return true;
 
         board.resetBoardBlock(row, col);

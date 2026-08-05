@@ -16,11 +16,11 @@ private:
 
     // Parallel phase: spawns an OpenMP task per feasible candidate up to TASK_DEPTH_CUTOFF.
     static bool solveGridParallel(const Board &board, Board &solutionBoard,
-                                  std::atomic<bool> &solved, int depth);
+                                  std::atomic<bool> &solved, std::atomic<long long> &nodes, int depth);
 
     // Serial phase: used once task depth exceeds TASK_DEPTH_CUTOFF.
     // Applies MRV + forward checking identically to BranchBoundMRVSolver.
-    static bool solveGridSerial(Board &board, std::atomic<bool> &solved);
+    static bool solveGridSerial(Board &board, std::atomic<bool> &solved, std::atomic<long long> &nodes);
 
     // Branch: MRV — pick the empty cell with fewest valid candidates.
     // Returns false when no empty cell remains (board is solved).

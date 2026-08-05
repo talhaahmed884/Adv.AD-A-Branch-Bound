@@ -11,7 +11,7 @@ public:
     void solve(Board &board) override;
 
 private:
-    static bool solveGrid(Board &board);
+    static bool solveGrid(Board &board, long long &nodes);
 
     static bool isValid(int row, int col, int value, const Board &board);
 

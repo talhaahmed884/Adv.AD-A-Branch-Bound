@@ -12,9 +12,10 @@ public:
     void solve(Board &board) override;
 
 private:
-    static bool solveGridParallel(const Board &board, Board &solutionBoard, std::atomic<bool> &solved, int depth);
+    static bool solveGridParallel(const Board &board, Board &solutionBoard,
+                                  std::atomic<bool> &solved, std::atomic<long long> &nodes, int depth);
 
-    static bool solveGridSerial(Board &board, std::atomic<bool> &solved);
+    static bool solveGridSerial(Board &board, std::atomic<bool> &solved, std::atomic<long long> &nodes);
 
     static bool isValid(int row, int column, int value, const Board &board);
 

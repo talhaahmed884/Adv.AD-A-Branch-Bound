@@ -11,7 +11,7 @@ public:
     void solve(Board &board) override;
 
 private:
-    static bool solveGrid(Board &board);
+    static bool solveGrid(Board &board, long long &nodes);
 
     // Branch: MRV cell selection — pick the empty cell with fewest valid candidates.
     // Returns false when no empty cell remains (board is solved).

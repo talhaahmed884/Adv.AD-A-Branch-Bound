@@ -3,10 +3,11 @@
 BranchBoundSolver::BranchBoundSolver() = default;
 
 void BranchBoundSolver::solve(Board &board) {
-    solveGrid(board);
+    nodeCount = 0;
+    solveGrid(board, nodeCount);
 }
 
-bool BranchBoundSolver::solveGrid(Board &board) {
+bool BranchBoundSolver::solveGrid(Board &board, long long &nodes) {
     int row = -1;
     int col = -1;
 
@@ -20,8 +21,9 @@ bool BranchBoundSolver::solveGrid(Board &board) {
             continue;
 
         board.setBoardValue(row, col, val);
+        ++nodes;
 
-        if (solveGrid(board))
+        if (solveGrid(board, nodes))
             return true;
 
         board.resetBoardBlock(row, col);

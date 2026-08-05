@@ -93,7 +93,20 @@ def load_data(paths):
     )
     correct_agg = raw.groupby(group_keys)["Correct"].max().reset_index()
 
+    has_nodes = "Nodes" in raw.columns
+    if has_nodes:
+        nodes_agg = (
+            raw.groupby(group_keys)["Nodes"]
+            .agg(Nodes="median", Nodes_min="min", Nodes_max="max")
+            .reset_index()
+        )
+
     df = time_agg.merge(correct_agg, on=group_keys)
+    if has_nodes:
+        df = df.merge(nodes_agg, on=group_keys)
+    else:
+        df["Nodes"] = pd.NA
+
     df["Config"] = df.apply(config_label, axis=1)
     df["Cost"]   = df["Threads"] * df["Time_s"]
 
@@ -535,6 +548,59 @@ def plot_cost_vs_threads(df):
 
 
 # ============================================================
+# PLOT 8 — Node Exploration Comparison
+# ============================================================
+def plot_node_exploration(df):
+    print("\n[Plot 8] Node Exploration Comparison")
+
+    if "Nodes" not in df.columns or df["Nodes"].isna().all():
+        print("  Skipped — no Nodes data found.")
+        return
+
+    all_configs = (
+        ["Serial", "Serial-MRV", "BranchBound", "BranchBoundMRV"]
+        + [f"OpenMP-{t}"    for t in THREAD_COUNTS]
+        + [f"OMP-BBMRV-{t}" for t in THREAD_COUNTS]
+    )
+    configs = [c for c in all_configs if c in df["Config"].unique()]
+
+    avg = df.groupby(["Difficulty", "Config"])["Nodes"].median().reset_index()
+
+    x     = np.arange(len(DIFFICULTIES))
+    n     = len(configs)
+    width = 0.85 / n
+
+    fig, ax = plt.subplots(figsize=(14, 5))
+
+    for i, cfg in enumerate(configs):
+        vals = (
+            avg[avg["Config"] == cfg]
+            .set_index("Difficulty")
+            .reindex(DIFFICULTIES)["Nodes"]
+            .values
+        )
+        offset = (i - n / 2 + 0.5) * width
+        ax.bar(x + offset, vals, width * 0.92,
+               label=cfg, color=CONFIG_COLORS.get(cfg, "#888888"))
+
+    ax.set_xlabel("Difficulty")
+    ax.set_ylabel("Median Nodes Explored (log scale)")
+    ax.set_title("Search Space Explored: Nodes per Algorithm Configuration\n"
+                 "(one node = one value placement attempted)")
+    ax.set_xticks(x)
+    ax.set_xticklabels(DIFFICULTIES)
+    ax.set_yscale("log")
+    ax.legend(ncol=2, fontsize=8)
+    ax.grid(True, alpha=0.3, axis="y")
+
+    fig.tight_layout()
+    path = os.path.join(PLOT_DIR, "node_exploration.png")
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved: {path}")
+
+
+# ============================================================
 # SUMMARY TABLE
 # ============================================================
 def save_summary_table(df, speedup_df):
@@ -551,6 +617,12 @@ def save_summary_table(df, speedup_df):
         .mean().reset_index()
         .rename(columns={"Cost": "Cost_mean"})
     )
+    has_nodes = "Nodes" in df.columns and not df["Nodes"].isna().all()
+    nodes_agg = (
+        df.groupby(["Difficulty", "Config"])["Nodes"]
+        .agg(Nodes_median="median", Nodes_mean="mean")
+        .reset_index()
+    ) if has_nodes else None
 
     agg_rows = []
     if not speedup_df.empty:
@@ -602,6 +674,8 @@ def save_summary_table(df, speedup_df):
         .merge(mean_speedup,    on=["Difficulty", "Config"], how="left")
         .merge(mean_efficiency, on=["Difficulty", "Config"], how="left")
     )
+    if nodes_agg is not None:
+        summary = summary.merge(nodes_agg, on=["Difficulty", "Config"], how="left")
 
     config_order = (
         ["Serial", "Serial-MRV", "BranchBound", "BranchBoundMRV"]
@@ -656,6 +730,7 @@ if __name__ == "__main__":
     plot_efficiency_heatmap(speedup_df)
     plot_all_configs(df_correct)
     plot_cost_vs_threads(df_correct)
+    plot_node_exploration(df_correct)
     save_summary_table(df_correct, speedup_df)
 
     print(f"\nAll plots written to: {PLOT_DIR}/")

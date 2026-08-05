@@ -11,7 +11,7 @@ public:
     void solve(Board &board) override;
 
 private:
-    static bool solveGrid(Board &board);
+    static bool solveGrid(Board &board, long long &nodes);
 
     // Branch: select the next empty cell in row-major order.
     // Returns false when no empty cell remains (board is solved).

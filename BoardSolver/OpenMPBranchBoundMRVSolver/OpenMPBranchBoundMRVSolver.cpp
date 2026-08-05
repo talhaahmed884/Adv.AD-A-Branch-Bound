@@ -15,6 +15,7 @@ OpenMPBranchBoundMRVSolver::OpenMPBranchBoundMRVSolver(const int maxThreads) : m
 
 void OpenMPBranchBoundMRVSolver::solve(Board &board) {
     std::atomic<bool> solved(false);
+    std::atomic<long long> nodes(0);
     Board solutionBoard;
 
 #ifdef _OPENMP
@@ -22,18 +23,20 @@ void OpenMPBranchBoundMRVSolver::solve(Board &board) {
     {
 #pragma omp single nowait
         {
-            solveGridParallel(board, solutionBoard, solved, 0);
+            solveGridParallel(board, solutionBoard, solved, nodes, 0);
         }
     }
     if (solved.load())
         board = solutionBoard;
 #else
-    solveGridSerial(board, solved);
+    solveGridSerial(board, solved, nodes);
 #endif
+    nodeCount = nodes.load();
 }
 
 bool OpenMPBranchBoundMRVSolver::solveGridParallel(const Board &board, Board &solutionBoard,
-                                                    std::atomic<bool> &solved, const int depth) {
+                                                    std::atomic<bool> &solved, std::atomic<long long> &nodes,
+                                                    const int depth) {
     if (solved.load()) return false;
 
     int row = -1;
@@ -61,15 +64,16 @@ bool OpenMPBranchBoundMRVSolver::solveGridParallel(const Board &board, Board &so
             // Branches that fail forward checking are pruned here, avoiding task overhead.
             Board candidate = snapshot;
             candidate.setBoardValue(row, col, val);
+            nodes.fetch_add(1, std::memory_order_relaxed);
             if (!isFeasible(candidate)) continue;
 
-#pragma omp task firstprivate(depth, candidate) shared(solutionBoard, solved)
+#pragma omp task firstprivate(depth, candidate) shared(solutionBoard, solved, nodes)
             {
                 if (!solved.load()) {
                     if (depth + 1 < TASK_DEPTH_CUTOFF) {
-                        solveGridParallel(candidate, solutionBoard, solved, depth + 1);
+                        solveGridParallel(candidate, solutionBoard, solved, nodes, depth + 1);
                     } else {
-                        if (solveGridSerial(candidate, solved)) {
+                        if (solveGridSerial(candidate, solved, nodes)) {
 #pragma omp critical
                             {
                                 if (!solved.exchange(true))
@@ -85,7 +89,8 @@ bool OpenMPBranchBoundMRVSolver::solveGridParallel(const Board &board, Board &so
     return solved.load();
 }
 
-bool OpenMPBranchBoundMRVSolver::solveGridSerial(Board &board, std::atomic<bool> &solved) {
+bool OpenMPBranchBoundMRVSolver::solveGridSerial(Board &board, std::atomic<bool> &solved,
+                                                   std::atomic<long long> &nodes) {
     if (solved.load()) return false;
 
     int row = -1;
@@ -98,9 +103,10 @@ bool OpenMPBranchBoundMRVSolver::solveGridSerial(Board &board, std::atomic<bool>
         if (!isValid(row, col, val, board)) continue;
 
         board.setBoardValue(row, col, val);
+        nodes.fetch_add(1, std::memory_order_relaxed);
 
         // Bound: forward checking before recursing
-        if (isFeasible(board) && solveGridSerial(board, solved))
+        if (isFeasible(board) && solveGridSerial(board, solved, nodes))
             return true;
 
         board.resetBoardBlock(row, col);

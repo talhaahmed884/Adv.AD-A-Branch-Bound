@@ -1,15 +1,14 @@
 #include "SerialSolver.h"
 
-#include <iostream>
-using namespace std;
 
 SerialSolver::SerialSolver() = default;
 
 void SerialSolver::solve(Board &board) {
-    solveGrid(board);
+    nodeCount = 0;
+    solveGrid(board, nodeCount);
 }
 
-bool SerialSolver::solveGrid(Board &board) {
+bool SerialSolver::solveGrid(Board &board, long long &nodes) {
     for (int row = 0; row < static_cast<int>(CommonConstants::BoardSize); row++) {
         for (int col = 0; col < static_cast<int>(CommonConstants::BoardSize); col++) {
             if (board.getBoardBlock(row, col).getIsFilled()) {
@@ -22,8 +21,9 @@ bool SerialSolver::solveGrid(Board &board) {
                 }
 
                 board.setBoardValue(row, col, val);
+                ++nodes;
 
-                if (solveGrid(board)) {
+                if (solveGrid(board, nodes)) {
                     return true;
                 }
 

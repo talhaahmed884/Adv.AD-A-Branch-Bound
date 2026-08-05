@@ -9,6 +9,11 @@ public:
     virtual ~Solver() = default;
 
     virtual void solve(Board &board) = 0;
+
+    [[nodiscard]] long long getNodeCount() const { return nodeCount; }
+
+protected:
+    long long nodeCount = 0;
 };
 
 #endif //ADV_AD_A_BRANCH_BOUND_SOLVER_H

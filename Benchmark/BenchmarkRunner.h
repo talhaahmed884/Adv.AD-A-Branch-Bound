@@ -15,6 +15,7 @@ struct BenchmarkResult {
     int threads;
     int rep;
     double timeSec;
+    long long nodes;
     int correct;
 };
 

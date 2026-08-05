@@ -16,6 +16,7 @@ OpenMPSolver::OpenMPSolver(int maxThreads) : maxThreads(maxThreads) {
 
 void OpenMPSolver::solve(Board &board) {
     std::atomic<bool> solved(false);
+    std::atomic<long long> nodes(0);
     Board solutionBoard;
 
 #ifdef _OPENMP
@@ -23,21 +24,22 @@ void OpenMPSolver::solve(Board &board) {
     {
 #pragma omp single nowait
         {
-            solveGridParallel(board, solutionBoard, solved, 0);
+            solveGridParallel(board, solutionBoard, solved, nodes, 0);
         }
     }
     if (solved.load()) {
         board = solutionBoard;
     }
 #else
-    solveGridSerial(board, solved);
+    solveGridSerial(board, solved, nodes);
 #endif
+    nodeCount = nodes.load();
 }
 
 static constexpr int TASK_DEPTH_CUTOFF = 3;
 
 bool OpenMPSolver::solveGridParallel(const Board &board, Board &solutionBoard,
-                                     std::atomic<bool> &solved, const int depth) {
+                                     std::atomic<bool> &solved, std::atomic<long long> &nodes, const int depth) {
     if (solved.load()) return false;
 
     int row = -1;
@@ -64,18 +66,19 @@ bool OpenMPSolver::solveGridParallel(const Board &board, Board &solutionBoard,
             if (solved.load()) break;
             if (!isValid(row, col, value, snapshot)) continue;
 
-#pragma omp task firstprivate(row, col, value, depth, snapshot) shared(solutionBoard, solved)
+#pragma omp task firstprivate(row, col, value, depth, snapshot) shared(solutionBoard, solved, nodes)
             {
                 if (!solved.load()) {
                     Board candidate = snapshot;
                     candidate.setBoardValue(row, col, value);
+                    nodes.fetch_add(1, std::memory_order_relaxed);
 
                     if (depth + 1 < TASK_DEPTH_CUTOFF) {
                         // Recurse: inner call writes directly to solutionBoard when it finds a solution
-                        solveGridParallel(candidate, solutionBoard, solved, depth + 1);
+                        solveGridParallel(candidate, solutionBoard, solved, nodes, depth + 1);
                     } else {
                         // Serial fallback: candidate is task-private, no sharing
-                        if (solveGridSerial(candidate, solved)) {
+                        if (solveGridSerial(candidate, solved, nodes)) {
 #pragma omp critical
                             {
                                 if (!solved.exchange(true)) {
@@ -92,7 +95,7 @@ bool OpenMPSolver::solveGridParallel(const Board &board, Board &solutionBoard,
     return solved.load();
 }
 
-bool OpenMPSolver::solveGridSerial(Board &board, std::atomic<bool> &solved) {
+bool OpenMPSolver::solveGridSerial(Board &board, std::atomic<bool> &solved, std::atomic<long long> &nodes) {
     if (solved.load()) {
         return false;
     }
@@ -114,8 +117,9 @@ bool OpenMPSolver::solveGridSerial(Board &board, std::atomic<bool> &solved) {
         }
 
         board.setBoardValue(row, col, value);
+        nodes.fetch_add(1, std::memory_order_relaxed);
 
-        if (solveGridSerial(board, solved)) {
+        if (solveGridSerial(board, solved, nodes)) {
             return true;
         }
 
