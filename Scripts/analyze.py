@@ -116,9 +116,9 @@ def load_data(paths):
 
 def compute_speedup(df):
     """
-    Two parallel families:
-      OpenMP     — vs Serial baseline        (parallelism gain over plain backtracking)
-      OMP-BBMRV  — vs BranchBoundMRV baseline (parallelism gain over best serial B&B)
+    Two parallel families — each measured against its own serial counterpart:
+      OpenMP     — vs Serial-MRV baseline  (parallelism gain; same MRV algorithm, serial vs parallel)
+      OMP-BBMRV  — vs BranchBoundMRV baseline (parallelism gain; same MRV+FC algorithm, serial vs parallel)
     """
     results = []
 
@@ -136,8 +136,47 @@ def compute_speedup(df):
         merged["Family"]     = family_name
         results.append(merged)
 
-    _merge("OpenMP",             "Serial",         "OpenMP")
+    _merge("OpenMP",             "Serial-MRV",     "OpenMP")
     _merge("OMP-BranchBoundMRV", "BranchBoundMRV", "OMP-BBMRV")
+
+    return pd.concat(results, ignore_index=True) if results else pd.DataFrame()
+
+
+def compute_bound_effect(df):
+    """
+    Three pairwise comparisons that isolate the effect of adding the bounding function,
+    holding everything else (cell selection strategy, parallelism) constant:
+
+      NoMRV    — Serial        vs BranchBound         (row-major order; plain constraint check added)
+      MRV      — Serial-MRV    vs BranchBoundMRV       (MRV order; forward checking added)
+      Parallel — OpenMP        vs OMP-BranchBoundMRV   (parallel MRV; forward checking added, same threads)
+    """
+    results = []
+
+    pairs = [
+        ("Serial",     "BranchBound",       "NoMRV",    False),
+        ("Serial-MRV", "BranchBoundMRV",    "MRV",      False),
+        ("OpenMP",     "OMP-BranchBoundMRV", "Parallel", True),
+    ]
+
+    for base_alg, bb_alg, family, match_threads in pairs:
+        keys = ["Board_ID", "Difficulty"] + (["Threads"] if match_threads else [])
+
+        base = (
+            df[df["Algorithm"] == base_alg][keys + ["Time_s"]]
+            .rename(columns={"Time_s": "T_base"})
+        )
+        bb = (
+            df[df["Algorithm"] == bb_alg][keys + ["Time_s"]]
+            .rename(columns={"Time_s": "T_bb"})
+        )
+
+        if base.empty or bb.empty:
+            continue
+
+        merged = base.merge(bb, on=keys)
+        merged["Family"] = family
+        results.append(merged)
 
     return pd.concat(results, ignore_index=True) if results else pd.DataFrame()
 
@@ -228,8 +267,8 @@ def plot_speedup_vs_threads(speedup_df):
         return
 
     subtitles = {
-        "OpenMP":    "OpenMP  (vs Serial baseline)",
-        "OMP-BBMRV": "OMP Branch & Bound MRV  (vs BranchBoundMRV baseline)",
+        "OpenMP":    "OpenMP  (vs Serial-MRV baseline — parallelism gain only)",
+        "OMP-BBMRV": "OMP Branch & Bound MRV  (vs BranchBoundMRV baseline — parallelism gain only)",
     }
 
     fig, axes = plt.subplots(1, len(families), figsize=(7 * len(families), 5), sharey=False)
@@ -274,11 +313,11 @@ def plot_runtime_vs_threads(df):
     print("\n[Plot 3] Runtime vs Threads")
 
     families = {
-        "OpenMP":    ("Serial",         "OpenMP"),
+        "OpenMP":    ("Serial-MRV",     "OpenMP"),
         "OMP-BBMRV": ("BranchBoundMRV", "OMP-BranchBoundMRV"),
     }
     subtitles = {
-        "OpenMP":    "OpenMP  (Serial baseline at x=1)",
+        "OpenMP":    "OpenMP  (Serial-MRV baseline at x=1)",
         "OMP-BBMRV": "OMP Branch & Bound MRV  (BranchBoundMRV baseline at x=1)",
     }
 
@@ -489,11 +528,11 @@ def plot_cost_vs_threads(df):
     print("\n[Plot 7] Cost vs Threads")
 
     families = {
-        "OpenMP":    ("Serial",         "OpenMP"),
+        "OpenMP":    ("Serial-MRV",     "OpenMP"),
         "OMP-BBMRV": ("BranchBoundMRV", "OMP-BranchBoundMRV"),
     }
     subtitles = {
-        "OpenMP":    "OpenMP  (Serial baseline at x=1)",
+        "OpenMP":    "OpenMP  (Serial-MRV baseline at x=1)",
         "OMP-BBMRV": "OMP Branch & Bound MRV  (BranchBoundMRV baseline at x=1)",
     }
 
@@ -601,6 +640,76 @@ def plot_node_exploration(df):
 
 
 # ============================================================
+# PLOT 9 — Bound Effect: pairwise comparison within each tier
+# ============================================================
+def plot_bound_effect(bound_df):
+    print("\n[Plot 9] Bound Effect Comparison")
+
+    if bound_df.empty:
+        print("  Skipped — no data.")
+        return
+
+    panels = [
+        ("NoMRV",    "Serial  vs  BranchBound",
+         "Row-major cell order\nPlain constraint check added as bound"),
+        ("MRV",      "Serial-MRV  vs  BranchBoundMRV",
+         "MRV cell order\nForward checking added as bound"),
+        ("Parallel", "OpenMP  vs  OMP-BranchBoundMRV",
+         "Parallel MRV\nForward checking added as bound  (matched thread count)"),
+    ]
+    panels = [(f, t, s) for f, t, s in panels if f in bound_df["Family"].values]
+    if not panels:
+        print("  Skipped — no matching families.")
+        return
+
+    fig, axes = plt.subplots(1, len(panels), figsize=(7 * len(panels), 5), sharey=False)
+    if len(panels) == 1:
+        axes = [axes]
+
+    for ax, (family, title, subtitle) in zip(axes, panels):
+        subset = bound_df[bound_df["Family"] == family]
+        ax.axhline(1.0, color="black", lw=1.2, linestyle="--", label="Break-even  (ratio = 1)")
+
+        if family == "Parallel":
+            for t in THREAD_COUNTS:
+                s = subset[subset["Threads"] == t]
+                if s.empty:
+                    continue
+                agg = (
+                    s.groupby("Difficulty")[["T_base", "T_bb"]]
+                    .sum()
+                    .reindex(DIFFICULTIES)
+                )
+                ratio = (agg["T_base"] / agg["T_bb"]).values
+                ax.plot(DIFFICULTIES, ratio, marker="o", label=f"{t} threads")
+        else:
+            agg = (
+                subset.groupby("Difficulty")[["T_base", "T_bb"]]
+                .sum()
+                .reindex(DIFFICULTIES)
+            )
+            ratio = (agg["T_base"] / agg["T_bb"]).values
+            color = CONFIG_COLORS.get("BranchBound" if family == "NoMRV" else "BranchBoundMRV", "#888888")
+            ax.plot(DIFFICULTIES, ratio, marker="o", color=color, linewidth=2, markersize=8,
+                    label="B&B ratio")
+
+        ax.set_title(f"{title}\n{subtitle}", fontsize=10)
+        ax.set_xlabel("Difficulty")
+        ax.set_ylabel("T_without_bound / T_with_bound\n(> 1  B&B faster  |  < 1  B&B slower)")
+        ax.legend(fontsize=8)
+        ax.grid(True, alpha=0.3)
+
+    fig.suptitle("Bounding Function Overhead / Benefit by Difficulty\n"
+                 "Each panel holds cell-selection strategy and parallelism constant",
+                 fontsize=13)
+    fig.tight_layout()
+    path = os.path.join(PLOT_DIR, "bound_effect.png")
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved: {path}")
+
+
+# ============================================================
 # SUMMARY TABLE
 # ============================================================
 def save_summary_table(df, speedup_df):
@@ -651,7 +760,7 @@ def save_summary_table(df, speedup_df):
     ) if not speedup_df.empty else pd.DataFrame(columns=["Difficulty", "Config", "Efficiency_mean"])
 
     # Speedup = 1.0 reference rows for each serial baseline used in compute_speedup
-    for s_config in ["Serial", "BranchBoundMRV"]:
+    for s_config in ["Serial-MRV", "BranchBoundMRV"]:
         if s_config not in time_agg["Config"].values:
             continue
         ref = time_agg[time_agg["Config"] == s_config][["Difficulty", "Config"]].copy()
@@ -723,6 +832,8 @@ if __name__ == "__main__":
     if not speedup_df.empty:
         speedup_df["Config"] = speedup_df.apply(config_label, axis=1)
 
+    bound_df = compute_bound_effect(df_correct)
+
     plot_serial_comparison(df_correct)
     plot_speedup_vs_threads(speedup_df)
     plot_runtime_vs_threads(df_correct)
@@ -731,6 +842,7 @@ if __name__ == "__main__":
     plot_all_configs(df_correct)
     plot_cost_vs_threads(df_correct)
     plot_node_exploration(df_correct)
+    plot_bound_effect(bound_df)
     save_summary_table(df_correct, speedup_df)
 
     print(f"\nAll plots written to: {PLOT_DIR}/")
