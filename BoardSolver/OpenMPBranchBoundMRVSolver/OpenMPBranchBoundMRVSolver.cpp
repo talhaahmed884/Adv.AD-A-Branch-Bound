@@ -42,7 +42,8 @@ bool OpenMPBranchBoundMRVSolver::solveGridParallel(const Board &board, Board &so
     int row = -1;
     int col = -1;
 
-    if (!selectCell(board, row, col)) {
+    const int minCand = selectCell(board, row, col);
+    if (minCand == -1) {
 #pragma omp critical
         {
             if (!solved.exchange(true))
@@ -50,6 +51,7 @@ bool OpenMPBranchBoundMRVSolver::solveGridParallel(const Board &board, Board &so
         }
         return true;
     }
+    if (minCand == 0) return false;
 
     // Each task works from its own snapshot; `board` is never written from here.
     const Board snapshot = board;
@@ -96,7 +98,10 @@ bool OpenMPBranchBoundMRVSolver::solveGridSerial(Board &board, std::atomic<bool>
     int row = -1;
     int col = -1;
 
-    if (!selectCell(board, row, col)) return true;
+    // Combined branch + bound in one scan.
+    const int minCand = selectCell(board, row, col);
+    if (minCand == -1) return true;  // solved
+    if (minCand == 0)  return false; // dead-end cell — prune
 
     for (int val = 1; val <= static_cast<int>(CommonConstants::BoardSize); val++) {
         if (solved.load()) return false;
@@ -105,8 +110,7 @@ bool OpenMPBranchBoundMRVSolver::solveGridSerial(Board &board, std::atomic<bool>
         board.setBoardValue(row, col, val);
         nodes.fetch_add(1, std::memory_order_relaxed);
 
-        // Bound: forward checking before recursing
-        if (isFeasible(board) && solveGridSerial(board, solved, nodes))
+        if (solveGridSerial(board, solved, nodes))
             return true;
 
         board.resetBoardBlock(row, col);
@@ -115,7 +119,7 @@ bool OpenMPBranchBoundMRVSolver::solveGridSerial(Board &board, std::atomic<bool>
     return false;
 }
 
-bool OpenMPBranchBoundMRVSolver::selectCell(const Board &board, int &row, int &col) {
+int OpenMPBranchBoundMRVSolver::selectCell(const Board &board, int &row, int &col) {
     constexpr int boardSize = static_cast<int>(CommonConstants::BoardSize);
     int minCandidates = boardSize + 1;
     row = -1;
@@ -125,17 +129,17 @@ bool OpenMPBranchBoundMRVSolver::selectCell(const Board &board, int &row, int &c
         for (int c = 0; c < boardSize; c++) {
             if (board.getBoardBlock(r, c).getIsFilled()) continue;
 
-            const int candidates = countCandidates(r, c, board);
-            if (candidates < minCandidates) {
-                minCandidates = candidates;
+            const int cand = countCandidates(r, c, board);
+            if (cand < minCandidates) {
+                minCandidates = cand;
                 row = r;
                 col = c;
-                if (minCandidates == 1) return true;
+                if (minCandidates == 0) return 0; // dead-end cell: prune
             }
         }
     }
 
-    return row != -1;
+    return (row == -1) ? -1 : minCandidates;
 }
 
 bool OpenMPBranchBoundMRVSolver::isFeasible(const Board &board) {

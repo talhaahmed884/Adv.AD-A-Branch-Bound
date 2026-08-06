@@ -45,8 +45,9 @@ bool SerialSolver::isValid(const int row, const int column, const int value, con
     const int endingRow = startingRow + gridSize;
     const int endingCol = startingCol + gridSize;
 
-    return isValidInGrid(startingRow, startingCol, endingRow, endingCol, value, board) && isValidInRow(
-               row, value, board) && isValidInCol(column, value, board);
+    return isValidInRow(row, value, board) &&
+           isValidInCol(column, value, board) &&
+           isValidInGrid(startingRow, startingCol, endingRow, endingCol, value, board);
 }
 
 bool SerialSolver::isValidInGrid(const int startingRow, const int startingCol, const int endingRow, const int endingCol,

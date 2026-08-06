@@ -11,9 +11,10 @@ bool BranchBoundMRVSolver::solveGrid(Board &board, long long &nodes) {
     int row = -1;
     int col = -1;
 
-    // Branch: pick the most constrained empty cell
-    if (!selectCell(board, row, col))
-        return true;
+    // Combined branch + bound: one scan finds the MRV cell and detects dead ends.
+    const int minCand = selectCell(board, row, col);
+    if (minCand == -1) return true;  // no empty cells — solved
+    if (minCand == 0)  return false; // dead-end cell found — prune
 
     for (int val = 1; val <= static_cast<int>(CommonConstants::BoardSize); val++) {
         if (!isValid(row, col, val, board))
@@ -22,9 +23,7 @@ bool BranchBoundMRVSolver::solveGrid(Board &board, long long &nodes) {
         board.setBoardValue(row, col, val);
         ++nodes;
 
-        // Bound: prune immediately if the placement leaves any empty cell
-        // with no valid candidates (forward checking)
-        if (isFeasible(board) && solveGrid(board, nodes))
+        if (solveGrid(board, nodes))
             return true;
 
         board.resetBoardBlock(row, col);
@@ -33,7 +32,7 @@ bool BranchBoundMRVSolver::solveGrid(Board &board, long long &nodes) {
     return false;
 }
 
-bool BranchBoundMRVSolver::selectCell(const Board &board, int &row, int &col) {
+int BranchBoundMRVSolver::selectCell(const Board &board, int &row, int &col) {
     constexpr int boardSize = static_cast<int>(CommonConstants::BoardSize);
     int minCandidates = boardSize + 1;
     row = -1;
@@ -43,31 +42,17 @@ bool BranchBoundMRVSolver::selectCell(const Board &board, int &row, int &col) {
         for (int c = 0; c < boardSize; c++) {
             if (board.getBoardBlock(r, c).getIsFilled()) continue;
 
-            const int candidates = countCandidates(r, c, board);
-            if (candidates < minCandidates) {
-                minCandidates = candidates;
+            const int cand = countCandidates(r, c, board);
+            if (cand < minCandidates) {
+                minCandidates = cand;
                 row = r;
                 col = c;
-                if (minCandidates == 1) return true;
+                if (minCandidates == 0) return 0; // dead-end cell: prune without scanning further
             }
         }
     }
 
-    return row != -1;
-}
-
-bool BranchBoundMRVSolver::isFeasible(const Board &board) {
-    constexpr int boardSize = static_cast<int>(CommonConstants::BoardSize);
-
-    for (int r = 0; r < boardSize; r++) {
-        for (int c = 0; c < boardSize; c++) {
-            if (board.getBoardBlock(r, c).getIsFilled()) continue;
-            if (countCandidates(r, c, board) == 0)
-                return false;
-        }
-    }
-
-    return true;
+    return (row == -1) ? -1 : minCandidates;
 }
 
 int BranchBoundMRVSolver::countCandidates(const int row, const int col, const Board &board) {

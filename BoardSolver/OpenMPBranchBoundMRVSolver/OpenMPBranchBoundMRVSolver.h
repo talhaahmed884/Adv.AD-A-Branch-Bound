@@ -22,9 +22,11 @@ private:
     // Applies MRV + forward checking identically to BranchBoundMRVSolver.
     static bool solveGridSerial(Board &board, std::atomic<bool> &solved, std::atomic<long long> &nodes);
 
-    // Branch: MRV — pick the empty cell with fewest valid candidates.
-    // Returns false when no empty cell remains (board is solved).
-    static bool selectCell(const Board &board, int &row, int &col);
+    // Branch + Bound combined: scans all empty cells in one pass.
+    // Returns -1 if the board is solved (no empty cells).
+    // Returns  0 if a dead-end cell (0 candidates) is found — prune this branch.
+    // Returns ≥1 = min candidates found; row/col set to the MRV cell.
+    static int selectCell(const Board &board, int &row, int &col);
 
     // Bound (forward checking): returns false if any empty cell has zero
     // valid candidates, proving this partial assignment cannot be completed.
